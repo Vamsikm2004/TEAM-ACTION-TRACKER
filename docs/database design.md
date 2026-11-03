@@ -9,10 +9,11 @@ The `users` table stores the users who can access and interact with the Team Act
 | `user_id` | BIGINT | Primary Key, Auto Increment | Unique identifier for the user |
 | `name` | VARCHAR(100) | NOT NULL | User's display name |
 | `email` | VARCHAR(150) | NOT NULL, UNIQUE | User's email address |
+| `password_hash` | VARCHAR(100) | NULL | BCrypt password hash used for authentication |
 | `role` | VARCHAR(30) | NOT NULL | User role: MANAGER or TEAM_MEMBER |
-| `active_status` | BOOLEAN | NOT NULL | Indicates whether the user is active |
-| `created_at` | TIMESTAMP | NOT NULL | Date and time when the user was created |
-| `updated_at` | TIMESTAMP | NOT NULL | Date and time when the user was last updated |
+| `active_status` | BIT(1) | NOT NULL | Indicates whether the user is active |
+| `created_at` | DATETIME(6) | NOT NULL | Date and time when the user was created |
+| `updated_at` | DATETIME(6) | NOT NULL | Date and time when the user was last updated |
 
 ### User Roles
 
@@ -37,9 +38,9 @@ The `action_items` table stores tasks or actions that need to be completed by te
 | `status` | VARCHAR(30) | NOT NULL | Current status of the action item |
 | `due_date` | DATE | NOT NULL | Date by which the action item should be completed |
 | `created_by` | BIGINT | NOT NULL, Foreign Key | User who created the action item |
-| `created_at` | TIMESTAMP | NOT NULL | Date and time when the action item was created |
-| `updated_at` | TIMESTAMP | NOT NULL | Date and time when the action item was last updated |
-| `completed_at` | TIMESTAMP | NULL | Date and time when the action item was completed |
+| `created_at` | DATETIME(6) | NOT NULL | Date and time when the action item was created |
+| `updated_at` | DATETIME(6) | NOT NULL | Date and time when the action item was last updated |
+| `completed_at` | DATETIME(6) | NULL | Date and time when the action item was completed |
 
 ### Priority Values
 
@@ -80,7 +81,7 @@ The `action_comments` table stores progress updates and comments added to action
 | `action_item_id` | BIGINT | NOT NULL, Foreign Key | Action item associated with the comment |
 | `user_id` | BIGINT | NOT NULL, Foreign Key | User who added the comment |
 | `comment` | TEXT | NOT NULL | Content of the progress comment |
-| `created_at` | TIMESTAMP | NOT NULL | Date and time when the comment was added |
+| `created_at` | DATETIME(6) | NOT NULL | Date and time when the comment was added |
 
 ### Relationships
 
@@ -108,7 +109,7 @@ The `action_history` table maintains an audit trail of important status changes 
 | `new_status` | VARCHAR(30) | NOT NULL | Status after the change |
 | `comment` | TEXT | NULL | Optional explanation for the change |
 | `updated_by` | BIGINT | NOT NULL, Foreign Key | User who made the status change |
-| `updated_at` | TIMESTAMP | NOT NULL | Date and time of the status change |
+| `updated_at` | DATETIME(6) | NOT NULL | Date and time of the status change |
 
 ### Relationships
 
@@ -160,7 +161,19 @@ USERS
 
 - Data integrity: Primary keys and foreign keys maintain relationships between records.
 - Uniqueness: The unique constraint on `users.email` prevents duplicate email addresses.
+- Authentication: Passwords are stored as BCrypt hashes rather than plain text.
 - Auditability: Creation, update, completion, and status-history fields support tracking changes.
 - Access control: User roles support manager and team-member permissions enforced by the application.
 - Validation: Required fields and business rules help maintain consistent application data.
-- Query performance: Indexes should support frequently used lookups and filtering operations.
+- Query performance: Indexes support frequently used lookups and filtering operations.
+- Database migrations: Flyway manages schema creation and versioned database changes.
+
+## 7. Database Implementation Notes
+
+- The database uses MySQL with the InnoDB storage engine.
+- The character set is `utf8mb4`.
+- Timestamps use `DATETIME(6)` for microsecond precision.
+- Foreign-key constraints maintain relationships between the four tables.
+- Flyway migration `V1__create_initial_schema.sql` creates the initial database schema.
+- Flyway migration `V2__add_action_item_status_index.sql` adds an index for action-item status queries.
+- Hibernate schema validation is used to verify the database schema against the application entities.

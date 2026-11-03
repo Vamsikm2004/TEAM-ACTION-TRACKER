@@ -1,4 +1,3 @@
-
 package com.teamactiontracker.backend.service;
 
 import com.teamactiontracker.backend.dto.CreateActionItemRequest;
@@ -11,7 +10,10 @@ import com.teamactiontracker.backend.repository.ActionItemRepository;
 import com.teamactiontracker.backend.repository.UserRepository;
 import com.teamactiontracker.backend.validation.ActionItemValidator;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authentication.AuthenticationCredentialsNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,8 @@ public class ActionItemService {
             "COMPLETED"
     );
 
+    private static final int MAX_COMMENT_LENGTH = 2000;
+
     private final ActionItemRepository actionItemRepository;
     private final UserRepository userRepository;
     private final ActionHistoryRepository actionHistoryRepository;
@@ -51,6 +55,7 @@ public class ActionItemService {
 
     @Transactional(readOnly = true)
     public List<ActionItem> getAllActionItems() {
+
         User currentUser = getCurrentUser();
         String role = normalizedRole(currentUser);
 
@@ -69,14 +74,15 @@ public class ActionItemService {
 
     @Transactional(readOnly = true)
     public ActionItem getActionItemById(Long id) {
+
         User currentUser = getCurrentUser();
 
         ActionItem actionItem = actionItemRepository.findById(id)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Action item not found"));
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Action item not found"));
 
         authorizeForActionItem(currentUser, actionItem);
+
         return actionItem;
     }
 
@@ -96,26 +102,30 @@ public class ActionItemService {
 
         User assignee = userRepository.findById(request.getAssigneeId())
                 .orElseThrow(() ->
-                        new IllegalArgumentException("Assignee not found"));
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignee not found"));
 
         if (!Boolean.TRUE.equals(assignee.getActiveStatus())) {
             throw new IllegalArgumentException(
                     "Cannot assign an action item to an inactive user");
         }
 
+        String priority = normalize(request.getPriority());
+
+        String status = request.getStatus() == null
+                || request.getStatus().isBlank()
+                ? "NOT_STARTED"
+                : normalize(request.getStatus());
+
         ActionItem actionItem = new ActionItem();
+
         actionItem.setTitle(request.getTitle().trim());
         actionItem.setDescription(request.getDescription());
         actionItem.setAssignee(assignee);
-        actionItem.setPriority(request.getPriority());
-        actionItem.setStatus(
-                request.getStatus() == null
-                        ? "NOT_STARTED"
-                        : request.getStatus()
-        );
+        actionItem.setPriority(priority);
+        actionItem.setStatus(status);
         actionItem.setDueDate(request.getDueDate());
 
-        // Use the authenticated manager, not the client-supplied createdBy ID.
+        // Always use the authenticated manager.
         actionItem.setCreatedBy(createdBy);
 
         return actionItemRepository.save(actionItem);
@@ -136,63 +146,81 @@ public class ActionItemService {
         validator.validate(request);
 
         ActionItem item = actionItemRepository.findById(actionItemId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Action item not found: " + actionItemId));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Action item not found: " + actionItemId));
 
         User assignee = userRepository.findById(request.getAssigneeId())
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Assignee not found: " + request.getAssigneeId()));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Assignee not found: " + request.getAssigneeId()));
 
         if (!Boolean.TRUE.equals(assignee.getActiveStatus())) {
             throw new IllegalArgumentException("Assignee is inactive");
         }
 
-        item.setTitle(request.getTitle().trim());
-        item.setDescription(request.getDescription());
-        item.setAssignee(assignee);
-        item.setPriority(request.getPriority());
-        item.setDueDate(request.getDueDate());
-
-        // Status changes must use updateStatus() to preserve action history.
+        // Status changes must use updateStatus() to preserve history.
         if (request.getStatus() != null
-                && !request.getStatus().equals(item.getStatus())) {
+                && !request.getStatus().isBlank()
+                && !normalize(request.getStatus()).equals(
+                        normalize(item.getStatus()))) {
+
             throw new IllegalArgumentException(
                     "Use the status update endpoint to change action status");
         }
 
+        item.setTitle(request.getTitle().trim());
+        item.setDescription(request.getDescription());
+        item.setAssignee(assignee);
+        item.setPriority(normalize(request.getPriority()));
+        item.setDueDate(request.getDueDate());
+
         return actionItemRepository.save(item);
     }
+
     @Transactional
     public ActionItem updateStatus(
             Long actionItemId,
             UpdateActionItemStatusRequest request) {
 
-        if (request == null
-                || request.getStatus() == null
-                || !ALLOWED_STATUSES.contains(request.getStatus())) {
+        if (request == null || request.getStatus() == null
+                || request.getStatus().isBlank()) {
 
             throw new IllegalArgumentException(
                     "Invalid action item status");
         }
 
+        String newStatus = normalize(request.getStatus());
+
+        if (!ALLOWED_STATUSES.contains(newStatus)) {
+            throw new IllegalArgumentException(
+                    "Invalid action item status");
+        }
+
+        if (request.getComment() != null
+                && request.getComment().length() > MAX_COMMENT_LENGTH) {
+
+            throw new IllegalArgumentException(
+                    "Comment must not exceed 2000 characters");
+        }
+
         User updatedBy = getCurrentUser();
-        ActionItem actionItem = actionItemRepository
-                .findById(actionItemId)
+
+        ActionItem actionItem = actionItemRepository.findById(actionItemId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Action item not found"));
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Action item not found"));
 
         authorizeForActionItem(updatedBy, actionItem);
 
-        String previousStatus = actionItem.getStatus();
-        String newStatus = request.getStatus();
+        String previousStatus = normalize(actionItem.getStatus());
+
+        // Do not create history for an unchanged status.
+        if (newStatus.equals(previousStatus)) {
+            return actionItem;
+        }
 
         actionItem.setStatus(newStatus);
 
         if ("COMPLETED".equals(newStatus)) {
-            if (!"COMPLETED".equals(previousStatus)) {
-                actionItem.setCompletedAt(LocalDateTime.now());
-            }
+            actionItem.setCompletedAt(LocalDateTime.now());
         } else {
             actionItem.setCompletedAt(null);
         }
@@ -201,10 +229,14 @@ public class ActionItemService {
                 actionItemRepository.save(actionItem);
 
         ActionHistory history = new ActionHistory();
+
         history.setActionItem(savedActionItem);
         history.setPreviousStatus(previousStatus);
         history.setNewStatus(newStatus);
-        history.setComment(request.getComment());
+        history.setComment(
+                request.getComment() == null
+                        ? null
+                        : request.getComment().trim());
         history.setUpdatedBy(updatedBy);
 
         actionHistoryRepository.save(history);
@@ -214,17 +246,17 @@ public class ActionItemService {
 
     @Transactional(readOnly = true)
     public List<ActionHistory> getActionItemHistory(Long actionItemId) {
+
         User currentUser = getCurrentUser();
 
         ActionItem actionItem = actionItemRepository.findById(actionItemId)
                 .orElseThrow(() ->
-                        new IllegalArgumentException(
-                                "Action item not found"));
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Action item not found"));
 
         authorizeForActionItem(currentUser, actionItem);
 
         return actionHistoryRepository
-                .findByActionItem_ActionItemIdOrderByUpdatedAtDesc(
+                .findByActionItem_ActionItemIdOrderByUpdatedAtDescHistoryIdDesc(
                         actionItemId);
     }
 
@@ -234,19 +266,20 @@ public class ActionItemService {
     }
 
     private User getCurrentUser(Authentication authentication) {
+
         if (authentication == null
                 || !authentication.isAuthenticated()
                 || authentication.getName() == null
                 || "anonymousUser".equals(authentication.getName())) {
 
-            throw new AccessDeniedException(
+            throw new AuthenticationCredentialsNotFoundException(
                     "Authentication is required");
         }
 
         User user = userRepository
                 .findByEmailIgnoreCase(authentication.getName())
                 .orElseThrow(() ->
-                        new AccessDeniedException(
+                        new AuthenticationCredentialsNotFoundException(
                                 "Authenticated user was not found"));
 
         if (!Boolean.TRUE.equals(user.getActiveStatus())) {
@@ -268,6 +301,7 @@ public class ActionItemService {
         }
 
         if ("TEAM_MEMBER".equals(role)) {
+
             User assignee = actionItem.getAssignee();
 
             if (assignee != null
@@ -285,8 +319,16 @@ public class ActionItemService {
     }
 
     private String normalizedRole(User user) {
+
         return user.getRole() == null
                 ? ""
                 : user.getRole().trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalize(String value) {
+
+        return value == null
+                ? null
+                : value.trim().toUpperCase(Locale.ROOT);
     }
 }

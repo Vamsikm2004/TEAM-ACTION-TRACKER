@@ -1,5 +1,34 @@
-# Vue 3 + Vite
+@'
+# Team Action Tracker — Frontend
 
-This template should help get you started developing with Vue 3 in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+A Vue 3 application for managing team action items, assignments, priorities, deadlines, status updates, comments, and action history.
 
-Learn more about IDE Support for Vue in the [Vue Docs Scaling up Guide](https://vuejs.org/guide/scaling-up/tooling.html#ide-support).
+## Technology Stack
+
+- Vue 3 with Composition API
+- Vue Router 4
+- Vite
+- JavaScript
+- Vitest and Vue Test Utils
+- Playwright
+- CSS
+
+## Project Structure
+
+```text
+src/
+├── assets/
+├── composables/
+│   └── useAuth.js
+├── constants/
+│   └── actionStatuses.js
+├── router/
+│   └── index.js
+├── services/
+│   └── api.js
+├── views/
+│   ├── DashboardView.vue
+│   └── LoginView.vue
+├── App.vue
+├── main.js
+└── style.css

@@ -1,8 +1,8 @@
-
 package com.teamactiontracker.backend.dto;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public class CreateUserRequest {
@@ -22,6 +22,10 @@ public class CreateUserRequest {
     private String password;
 
     @NotBlank(message = "Role is required")
+    @Pattern(
+        regexp = "(?i)MANAGER|TEAM_MEMBER",
+        message = "Role must be MANAGER or TEAM_MEMBER"
+    )
     private String role;
 
     public CreateUserRequest() {

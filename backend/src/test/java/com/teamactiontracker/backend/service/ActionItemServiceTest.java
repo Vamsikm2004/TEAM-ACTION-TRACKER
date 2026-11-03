@@ -152,7 +152,7 @@ class ActionItemServiceTest {
         );
 
         verify(actionHistoryRepository, never())
-                .findByActionItem_ActionItemIdOrderByUpdatedAtDesc(10L);
+                .findByActionItem_ActionItemIdOrderByUpdatedAtDescHistoryIdDesc(10L);
     }
 
     @Test
@@ -200,10 +200,6 @@ class ActionItemServiceTest {
         request.setPriority("HIGH");
         request.setStatus("NOT_STARTED");
         request.setDueDate(LocalDate.now().plusDays(3));
-
-        // The request must not control the persisted creator identity.
-        request.setCreatedBy(999L);
-
         ActionItem savedItem =
                 actionItemService.createActionItem(request, authentication);
 
@@ -227,7 +223,6 @@ class ActionItemServiceTest {
         CreateActionItemRequest request = new CreateActionItemRequest();
         request.setTitle("Prepare weekly report");
         request.setAssigneeId(2L);
-        request.setCreatedBy(2L);
         request.setPriority("HIGH");
         request.setStatus("NOT_STARTED");
         request.setDueDate(LocalDate.now().plusDays(3));

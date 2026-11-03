@@ -1,8 +1,7 @@
-
 package com.teamactiontracker.backend.controller;
 
 import com.teamactiontracker.backend.dto.CreateUserRequest;
-import com.teamactiontracker.backend.dto.LoginResponse;
+import com.teamactiontracker.backend.dto.UserResponse;
 import com.teamactiontracker.backend.dto.UserSummaryResponse;
 import com.teamactiontracker.backend.service.UserService;
 
@@ -37,53 +36,31 @@ public class UserController {
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(
         summary = "Create a user account",
-        description = """
-            Creates a new user account using the supplied user details.
-            The endpoint is restricted by the application's security rules.
-            """
+        description = "Creates a new user account using the supplied details."
     )
     @ApiResponses({
-        @ApiResponse(
-            responseCode = "201",
-            description = "User account created successfully"
-        ),
-        @ApiResponse(
-            responseCode = "400",
-            description = "Invalid request or validation failure"
-        ),
-        @ApiResponse(
-            responseCode = "401",
-            description = "Authentication required"
-        ),
-        @ApiResponse(
-            responseCode = "403",
-            description = "Insufficient permissions"
-        )
+        @ApiResponse(responseCode = "201", description = "User created"),
+        @ApiResponse(responseCode = "400", description = "Invalid request"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions"),
+        @ApiResponse(responseCode = "409", description = "Email already exists")
     })
-    public LoginResponse createUser(
+    public UserResponse createUser(
             @Parameter(description = "Details for the new user account")
             @Valid @RequestBody CreateUserRequest request) {
+
         return userService.createUser(request);
     }
 
     @GetMapping
     @Operation(
         summary = "Get active users",
-        description = "Returns a list of active users available through this endpoint."
+        description = "Returns only active users."
     )
     @ApiResponses({
-        @ApiResponse(
-            responseCode = "200",
-            description = "Active users retrieved successfully"
-        ),
-        @ApiResponse(
-            responseCode = "401",
-            description = "Authentication required"
-        ),
-        @ApiResponse(
-            responseCode = "403",
-            description = "Insufficient permissions"
-        )
+        @ApiResponse(responseCode = "200", description = "Users retrieved"),
+        @ApiResponse(responseCode = "401", description = "Authentication required"),
+        @ApiResponse(responseCode = "403", description = "Insufficient permissions")
     })
     public List<UserSummaryResponse> getUsers() {
         return userService.getActiveUsers();

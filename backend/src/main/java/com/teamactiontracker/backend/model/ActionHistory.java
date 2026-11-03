@@ -12,7 +12,7 @@ public class ActionHistory {
     @Column(name = "history_id")
     private Long historyId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "action_item_id", nullable = false)
     private ActionItem actionItem;
 
@@ -22,19 +22,21 @@ public class ActionHistory {
     @Column(name = "new_status", nullable = false, length = 30)
     private String newStatus;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "comment", columnDefinition = "TEXT")
     private String comment;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "updated_by", nullable = false)
     private User updatedBy;
 
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, updatable = false)
     private LocalDateTime updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        updatedAt = LocalDateTime.now();
+        if (updatedAt == null) {
+            updatedAt = LocalDateTime.now();
+        }
     }
 
     public Long getHistoryId() {

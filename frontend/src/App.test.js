@@ -1,10 +1,45 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import App from './App.vue'
+import { createRouter, createMemoryHistory } from 'vue-router'
+import { defineComponent } from 'vue'
+import LoginView from './views/LoginView.vue'
 
-describe('Team Action Tracker', () => {
-  it('renders the login screen', () => {
-    const wrapper = mount(App)
+const mocks = vi.hoisted(() => ({
+  login: vi.fn(),
+  loginError: { value: '' },
+  loginLoading: { value: false }
+}))
+
+vi.mock('./composables/useAuth', () => ({
+  useAuth: () => mocks
+}))
+
+const DashboardStub = defineComponent({
+  template: '<div>Dashboard</div>'
+})
+
+async function mountLogin() {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/login', name: 'login', component: LoginView },
+      { path: '/dashboard', name: 'dashboard', component: DashboardStub }
+    ]
+  })
+
+  await router.push('/login')
+  await router.isReady()
+
+  const wrapper = mount(LoginView, {
+    global: { plugins: [router] }
+  })
+
+  return { wrapper, router }
+}
+
+describe('Team Action Tracker login', () => {
+  it('renders the login screen', async () => {
+    const { wrapper } = await mountLogin()
 
     expect(wrapper.text()).toContain('Team Action Tracker')
     expect(wrapper.text()).toContain('Sign in')
@@ -12,8 +47,8 @@ describe('Team Action Tracker', () => {
     expect(wrapper.find('input[type="password"]').exists()).toBe(true)
   })
 
-  it('requires email and password', () => {
-    const wrapper = mount(App)
+  it('requires email and password', async () => {
+    const { wrapper } = await mountLogin()
 
     expect(wrapper.find('input[type="email"]').attributes('required')).toBeDefined()
     expect(wrapper.find('input[type="password"]').attributes('required')).toBeDefined()

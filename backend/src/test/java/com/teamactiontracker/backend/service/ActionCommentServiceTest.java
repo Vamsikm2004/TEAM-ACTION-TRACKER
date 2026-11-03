@@ -1,6 +1,10 @@
 
 package com.teamactiontracker.backend.service;
 
+import org.springframework.web.server.ResponseStatusException;
+
+import org.springframework.http.HttpStatus;
+
 import com.teamactiontracker.backend.dto.ActionCommentResponse;
 import com.teamactiontracker.backend.dto.CreateActionCommentRequest;
 import com.teamactiontracker.backend.model.ActionComment;
@@ -144,12 +148,12 @@ class ActionCommentServiceTest {
         when(actionItemRepository.findById(999L))
                 .thenReturn(Optional.empty());
 
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
                 () -> service.getComments(999L, authentication)
         );
 
-        assertEquals("Action item not found", exception.getMessage());
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
     }
 
     @Test
@@ -290,12 +294,12 @@ class ActionCommentServiceTest {
         CreateActionCommentRequest request =
                 createRequest(999L, "Comment for missing item");
 
-        IllegalArgumentException exception = assertThrows(
-                IllegalArgumentException.class,
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
                 () -> service.addComment(request, authentication)
         );
 
-        assertEquals("Action item not found", exception.getMessage());
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatusCode());
         verify(commentRepository, never()).save(any(ActionComment.class));
     }
 

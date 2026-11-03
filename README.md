@@ -1,11 +1,11 @@
-﻿# Team Action Tracker
+# Team Action Tracker
 
 A full-stack application for managing team action items, assigning responsibilities, tracking priorities and statuses, and maintaining comments and activity history.
 
 ## Technology Stack
 
 - Backend: Java 21, Spring Boot, Maven, Spring Data JPA, Spring Security
-- Frontend: Vue 3, JavaScript, Vite
+- Frontend: Vue 3, JavaScript, Vite, Vue Router
 - Database: MySQL 8
 - Migrations: Flyway
 - Testing: JUnit, Vitest, Vue Test Utils, Playwright
@@ -16,15 +16,10 @@ A full-stack application for managing team action items, assigning responsibilit
 text
 Team Action Tracker/
 ├── backend/                 # Spring Boot REST API
+├── frontend/                # Vue application
 ├── backups/                 # Database backups
-├── database/
-│   └── migrations/          # Database migration notes
-├── frontend/
-│   ├── e2e/                 # Playwright tests
-│   └── src/                 # Vue source and unit tests
+├── database/                # Database scripts and migration notes
 ├── docs/                    # Requirements, design, API and progress
-├── team_action_tracker_backup.sql
-├── team_action_tracker_backup_before_mysql_recovery.sql
 └── README.md
 
 ## Prerequisites
@@ -47,18 +42,16 @@ git --version
 1. Start MySQL.
 2. Create the database if it does not already exist:
 
-   sql
-   CREATE DATABASE IF NOT EXISTS team_action_tracker;
+sql
+CREATE DATABASE IF NOT EXISTS team_action_tracker;
 
-3. Set the `DB_PASSWORD` environment variable to your local MySQL password.
-4. Check `backend/src/main/resources/application.properties` for the JDBC URL and username.
-5. Flyway migrations are located in `backend/src/main/resources/db/migration/`.
-
-For PowerShell, set the password in the terminal used to run the backend:
+3. Set the `DB_PASSWORD` environment variable in the terminal used to run the backend:
 
 powershell
 $env:DB_PASSWORD = Read-Host "Enter your MySQL password"
 
+4. Check `backend/src/main/resources/application.properties` for the JDBC URL and username.
+5. Flyway migrations are located in `backend/src/main/resources/db/migration/`.
 
 Do not drop or recreate a database containing data you need to preserve. Keep database backups secure.
 
@@ -67,18 +60,17 @@ Do not drop or recreate a database containing data you need to preserve. Keep da
 Open PowerShell:
 
 powershell
-cd "C:\Team Action Tracker\backend"
+cd "C:\Team Action Tracker\Backend"
 $env:JAVA_HOME = "C:\Program Files\Microsoft\jdk-21.0.10.7-hotspot"
 $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 $env:DB_PASSWORD = Read-Host "Enter your MySQL password"
 .\mvnw.cmd spring-boot:run
 
-
 Adjust `JAVA_HOME` if Java is installed elsewhere. The password is entered interactively and should never be committed to source control.
 
 The backend normally runs at `http://localhost:8080`.
 
-If the health endpoint is enabled and accessible, verify it at:
+Health endpoint:
 
 `http://localhost:8080/api/health`
 
@@ -93,22 +85,23 @@ cd "C:\Team Action Tracker\frontend"
 npm install
 npm run dev
 
-
 Open the local URL printed by Vite, normally `http://localhost:5173`.
 
-The frontend API base URL is currently configured as:
+The frontend API base URL is configured through environment variables:
 
-javascript
-const API_BASE = 'http://localhost:8080/api';
+- Development: `.env.development`
+- Production example: `.env.production.example`
+- Variable: `VITE_API_BASE_URL`
+- Default local API URL: `http://localhost:8080/api`
 
-
-Ensure the backend is running and the API URL matches your environment.
+Ensure the backend is running and the configured API URL matches your environment. Do not commit local `.env` files containing private configuration.
 
 ## Application Features
 
 The current frontend implementation includes:
 
 - Session-based login and CSRF handling
+- Login and dashboard routes
 - Dashboard counts for action statuses and overdue items
 - Action-item search, filtering, sorting and pagination
 - Status updates
@@ -122,20 +115,23 @@ Access depends on the authenticated user's role and backend authorization rules.
 
 The API is served under `/api`. Authentication, authorization, and CSRF protection may apply.
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/api/health` | Backend health check |
-| GET | `/api/auth/csrf` | Obtain a CSRF token |
-| POST | `/api/auth/login` | Sign in |
-| GET | `/api/users` | Retrieve users |
-| POST | `/api/users` | Create a user (Manager) |
-| GET | `/api/action-items` | Retrieve action items |
-| GET | `/api/action-items/{id}` | Retrieve one action item |
-| POST | `/api/action-items` | Create an action item (Manager) |
-| PATCH | `/api/action-items/{id}/status` | Update status |
-| GET | `/api/action-items/{id}/history` | Retrieve action history |
-| GET | `/api/comments?actionItemId={id}` | Retrieve action comments |
-| POST | `/api/comments` | Add a comment |
+| Method | Endpoint | Permission | Purpose |
+|---|---|---|---|
+| GET | `/api/health` | Public | Backend health check |
+| GET | `/api/auth/csrf` | Public | Obtain a CSRF token |
+| POST | `/api/auth/login` | Public | Sign in |
+| GET | `/api/auth/me` | Authenticated | Retrieve the current authenticated user |
+| POST | `/api/auth/logout` | Public | Sign out |
+| GET | `/api/users` | Manager | Retrieve active users |
+| POST | `/api/users` | Manager | Create a user |
+| GET | `/api/action-items` | Manager / Team Member | Retrieve permitted action items |
+| GET | `/api/action-items/{id}` | Manager / Assigned Team Member | Retrieve one permitted action item |
+| POST | `/api/action-items` | Manager | Create an action item |
+| PUT | `/api/action-items/{id}` | Manager | Update an action item |
+| PATCH | `/api/action-items/{id}/status` | Manager / Assigned Team Member | Update status |
+| GET | `/api/action-items/{id}/history` | Manager / Assigned Team Member | Retrieve permitted action history |
+| GET | `/api/comments?actionItemId={id}` | Manager / Assigned Team Member | Retrieve permitted action comments |
+| POST | `/api/comments` | Manager / Assigned Team Member | Add a permitted action-item comment |
 
 Confirm the actual controller mappings if an endpoint returns `404 Not Found`.
 
@@ -145,15 +141,17 @@ Swagger UI, if enabled, is normally available at:
 
 ## Testing and Production Build
 
+The results below are historical results from runs performed before the latest Week 4 changes. Run the commands again to establish fresh results for the current code.
+
 ### Backend tests
 
-Run these commands from the backend directory:
+Run from the backend directory:
 
 powershell
-cd "C:\Team Action Tracker\backend"
+cd "C:\Team Action Tracker\Backend"
 .\mvnw.cmd test
 
-**Latest verified results:**
+Previously recorded verification results:
 
 - Tests: 39
 - Failures: 0
@@ -161,15 +159,15 @@ cd "C:\Team Action Tracker\backend"
 
 ### Frontend unit tests
 
-Run these commands from the frontend directory:
+Run from the frontend directory:
 
 powershell
 cd "C:\Team Action Tracker\frontend"
 npm test -- --pool=forks --maxWorkers=1
 
-The single-worker forks configuration was verified successfully after the default Vitest worker pool encountered a startup timeout.
+The single-worker forks configuration was previously used after the default Vitest worker pool encountered a startup timeout.
 
-**Latest verified results:**
+**Previously recorded verification results:**
 
 - Tests: 2 passed
 - Login screen rendering
@@ -182,6 +180,7 @@ Ensure the backend is running before executing the tests.
 Install Chromium if needed:
 
 powershell
+cd "C:\Team Action Tracker\frontend"
 npx playwright install chromium
 
 Run the Playwright tests:
@@ -189,7 +188,7 @@ Run the Playwright tests:
 powershell
 npm run test:e2e
 
-**Latest verified results:**
+**Previously recorded verification results:**
 
 - Tests: 2 passed
 - Login screen displays required fields.
@@ -199,16 +198,17 @@ These tests cover the listed login scenarios. They do not verify the complete ac
 
 ### Production build
 
-Run the following from the frontend directory:
+Run from the frontend directory:
 
 powershell
+cd "C:\Team Action Tracker\frontend"
 npm run build
 
-The production build completed successfully during the latest verification. Vite generates the output in `frontend/dist/`.
+The production build was successful during a previous verification. Vite generates the output in `frontend/dist/`.
 
 ## End-to-End Acceptance Checklist
 
-Before declaring the application fully accepted, validate the following workflow using an appropriate test account:
+Before declaring the application fully accepted, validate the following workflow using appropriate test accounts:
 
 - [ ] Log in with valid credentials.
 - [ ] Verify dashboard counts.
@@ -218,15 +218,16 @@ Before declaring the application fully accepted, validate the following workflow
 - [ ] Update the action item's status.
 - [ ] Add a comment and view action history.
 - [ ] Refresh the page and verify that changes persist.
-- [ ] Confirm role-based restrictions.
+- [ ] Confirm Manager and Team Member restrictions.
 - [ ] Verify validation messages for invalid input.
 - [ ] Check loading, empty, and error states.
+- [ ] Verify logout and protected-route behavior.
 
 Compare the displayed data with the database where practical. Record the results of these checks before declaring full acceptance.
 
 ## Documentation
 
-Requirements, high-level design, database design, API specifications, and progress notes are maintained in `docs/`.
+Requirements, high-level design, database design, API specifications, diagrams, proposals, and progress notes are maintained in `docs/` and the backend documentation folders.
 
 Keep these documents aligned with the current implementation and verified behavior.
 
@@ -240,17 +241,18 @@ Keep these documents aligned with the current implementation and verified behavi
 - Preserve CSRF protection for applicable session-authenticated requests.
 - Protect database backups because they may contain sensitive information.
 - Use appropriately restricted database accounts in production.
-- Review database migration and Hibernate schema-update settings before production deployment.
+- Review database migration and Hibernate schema-validation settings before production deployment.
 - Do not commit `node_modules`, generated build output, or generated test reports unless explicitly required.
 
 ## Known Limitations
 
-- The current automated end-to-end tests cover login-screen rendering and invalid-login behavior.
+- The previously recorded automated end-to-end tests cover login-screen rendering and invalid-login behavior.
 - The complete workflow involving action creation, assignment, status updates, comments, history, and persistence still requires acceptance testing.
-- Role restrictions and all search, filtering, sorting, and pagination scenarios require functional validation beyond the currently verified tests.
-- The frontend unit-test suite contains only two tests, so broader component coverage remains desirable.
+- Role restrictions and all search, filtering, sorting, and pagination scenarios require functional validation beyond the previously recorded tests.
+- The frontend unit-test suite previously contained only two tests, so broader component coverage remains desirable.
 - Swagger/OpenAPI availability depends on the backend configuration.
 - The application uses local development configuration and requires appropriate security and deployment review before production use.
+- The two improvement proposals are awaiting review and approval; neither should be treated as approved or implemented until formally selected.
 
 ## Troubleshooting
 
@@ -280,7 +282,7 @@ Check that:
 Check that:
 
 - The backend is running on port `8080`.
-- The frontend API base URL is correct.
+- `VITE_API_BASE_URL` points to the correct API base URL.
 - The browser developer console and Network panel show no unexpected errors.
 - Authentication cookies and CSRF tokens are handled correctly.
 
@@ -293,7 +295,7 @@ If the default frontend test command times out while starting a worker, run:
 powershell
 npm test -- --pool=forks --maxWorkers=1
 
-This configuration passed during the latest verification.
+This configuration passed during a previous verification.
 
 ### Port already in use
 
@@ -301,12 +303,15 @@ If a port is occupied, identify the process using it before stopping anything. A
 
 ## Project Status
 
-| Verification | Latest result |
+| Verification | Status |
 |---|---|
-| Backend tests | 39 tests; 0 failures; 0 errors |
-| Frontend unit tests | 2 passed |
-| Playwright end-to-end tests | 2 passed |
-| Frontend production build | Successful |
+| Backend tests | Historical result: 39 tests; 0 failures; 0 errors |
+| Frontend unit tests | Historical result: 2 passed |
+| Playwright end-to-end tests | Historical result: 2 passed |
+| Frontend production build | Historical result: successful |
+| Fresh Week 4 regression tests | Pending |
 | Full workflow acceptance | Pending confirmation |
+| Improvement proposal approval | Pending |
+| Final handover | Pending |
 
-The project should be considered fully accepted after the remaining functional and role-based acceptance checks have been completed and documented.
+The project should be considered fully accepted only after the approved improvement, fresh regression testing, functional and role-based acceptance checks, and handover activities have been completed and documented.

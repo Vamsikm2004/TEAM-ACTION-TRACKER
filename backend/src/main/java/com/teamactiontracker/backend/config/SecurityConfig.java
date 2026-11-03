@@ -1,15 +1,16 @@
-
 package com.teamactiontracker.backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.web.cors.CorsConfigurationSource;
 
 @Configuration
@@ -22,78 +23,113 @@ public class SecurityConfig {
             throws Exception {
 
         http
+
+            // CORS configuration.
             .cors(cors ->
-                cors.configurationSource(corsConfigurationSource)
+                    cors.configurationSource(corsConfigurationSource)
             )
+
+            // Retain CSRF protection for session-based authentication.
             .csrf(Customizer.withDefaults())
+
+            // Create sessions only when required.
             .sessionManagement(session ->
-                session.sessionCreationPolicy(
-                    SessionCreationPolicy.IF_REQUIRED
-                )
+                    session.sessionCreationPolicy(
+                            SessionCreationPolicy.IF_REQUIRED
+                    )
             )
+
+            // Disable default authentication mechanisms.
             .httpBasic(basic -> basic.disable())
             .formLogin(form -> form.disable())
+
+            // Return HTTP 401 instead of redirecting API clients.
+            .exceptionHandling(exception ->
+                    exception.authenticationEntryPoint(
+                            new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED)
+                    )
+            )
+
+            // Actual logout implementation.
+            .logout(logout ->
+                    logout
+                            .logoutUrl("/api/auth/logout")
+                            .invalidateHttpSession(true)
+                            .clearAuthentication(true)
+                            .deleteCookies("JSESSIONID")
+                            .logoutSuccessHandler(
+                                    (request, response, authentication) ->
+                                            response.setStatus(
+                                                    HttpStatus.NO_CONTENT.value()
+                                            )
+                            )
+            )
+
+            // Endpoint authorization.
             .authorizeHttpRequests(auth -> auth
 
-                // Public endpoints: login and CSRF token
-                .requestMatchers(
-                    "/api/auth/login",
-                    "/api/auth/csrf"
-                ).permitAll()
+                    // Public authentication endpoints.
+                    .requestMatchers(
+                            "/api/auth/login",
+                            "/api/auth/csrf",
+                            "/api/auth/logout"
+                    ).permitAll()
 
-                // Public health check
-                .requestMatchers(
-                   HttpMethod.GET, "/api/health",
-                   "/actuator/health"
-                ).permitAll()
-                
-                // Swagger UI and OpenAPI documentation
-                .requestMatchers(
-                    "/swagger-ui.html",
-                    "/swagger-ui/**",
-                    "/v3/api-docs",
-                    "/v3/api-docs/**"
-                ).permitAll()
+                    // Public health endpoints.
+                    .requestMatchers(
+                            HttpMethod.GET,
+                            "/api/health",
+                            "/actuator/health"
+                    ).permitAll()
 
-                // Allow browser preflight requests
-                .requestMatchers(
-                    HttpMethod.OPTIONS, "/**"
-                ).permitAll()
+                    // Public Swagger documentation.
+                    .requestMatchers(
+                            "/swagger-ui.html",
+                            "/swagger-ui/**",
+                            "/v3/api-docs",
+                            "/v3/api-docs/**"
+                    ).permitAll()
 
-                // Only Managers can view users
-                .requestMatchers(
-                    HttpMethod.GET, "/api/users"
-                ).hasRole("MANAGER")
+                    // Browser CORS preflight.
+                    .requestMatchers(
+                            HttpMethod.OPTIONS,
+                            "/**"
+                    ).permitAll()
 
-                // Only Managers can create user accounts
-                .requestMatchers(
-                    HttpMethod.POST, "/api/users"
-                ).hasRole("MANAGER")
+                    // User management: Managers only.
+                    .requestMatchers(
+                            "/api/users/**"
+                    ).hasRole("MANAGER")
 
-                // Managers and Team Members can view action items
-                .requestMatchers(
-                    HttpMethod.GET, "/api/action-items/**"
-                ).hasAnyRole("MANAGER", "TEAM_MEMBER")
+                    // Action item retrieval.
+                    .requestMatchers(
+                            HttpMethod.GET,
+                            "/api/action-items",
+                            "/api/action-items/**"
+                    ).hasAnyRole("MANAGER", "TEAM_MEMBER")
 
-                // Only Managers can create action items
-                .requestMatchers(
-                    HttpMethod.POST, "/api/action-items/**"
-                ).hasRole("MANAGER")
+                    // Action item creation: Managers only.
+                    .requestMatchers(
+                            HttpMethod.POST,
+                            "/api/action-items",
+                            "/api/action-items/**"
+                    ).hasRole("MANAGER")
 
-                // Managers and Team Members can update status
-                .requestMatchers(
-                    HttpMethod.PATCH,
-                    "/api/action-items/*/status"
-                ).hasAnyRole("MANAGER", "TEAM_MEMBER")
+                    // Action item editing: Managers only.
+                    .requestMatchers(
+                            HttpMethod.PUT,
+                            "/api/action-items",
+                            "/api/action-items/**"
+                    ).hasRole("MANAGER")
 
-                // Managers and Team Members can view action history
-                .requestMatchers(
-                    HttpMethod.GET,
-                    "/api/action-items/*/history"
-                ).hasAnyRole("MANAGER", "TEAM_MEMBER")
+                    // Status updates: Managers and Team Members.
+                    .requestMatchers(
+                            HttpMethod.PATCH,
+                            "/api/action-items/*/status"
+                    ).hasAnyRole("MANAGER", "TEAM_MEMBER")
 
-                // All other endpoints require authentication
-                .anyRequest().authenticated()
+                    // All remaining requests require authentication.
+                    .anyRequest().authenticated()
             );
 
         return http.build();

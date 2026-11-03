@@ -1,9 +1,15 @@
 package com.teamactiontracker.backend.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
 public class UpdateActionItemStatusRequest {
 
+    @NotBlank(message = "Status is required")
+    @Size(max = 30, message = "Status must not exceed 30 characters")
     private String status;
-    private Long updatedBy;
+
+    @Size(max = 2000, message = "Comment must not exceed 2000 characters")
     private String comment;
 
     public String getStatus() {
@@ -12,14 +18,6 @@ public class UpdateActionItemStatusRequest {
 
     public void setStatus(String status) {
         this.status = status;
-    }
-
-    public Long getUpdatedBy() {
-        return updatedBy;
-    }
-
-    public void setUpdatedBy(Long updatedBy) {
-        this.updatedBy = updatedBy;
     }
 
     public String getComment() {

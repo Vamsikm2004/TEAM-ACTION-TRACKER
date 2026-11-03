@@ -1,4 +1,3 @@
-
 package com.teamactiontracker.backend.dto;
 
 import com.teamactiontracker.backend.model.ActionHistory;

@@ -1,4 +1,3 @@
-
 package com.teamactiontracker.backend.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,27 +13,38 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/auth")
 @Tag(
-    name = "Authentication",
-    description = "Authentication, session management and CSRF protection"
+        name = "Authentication",
+        description = "Authentication, session management and CSRF protection"
 )
 public class CsrfController {
 
     @GetMapping("/csrf")
     @Operation(
-        summary = "Get CSRF token",
-        description = """
-            Returns the CSRF token associated with the current request.
-            The client should retain the token and send it using the
-            configured CSRF request header for protected state-changing requests.
-            """
+            summary = "Get CSRF token",
+            description = """
+                    Returns the CSRF token associated with the current request.
+                    The client should retain the token and send it using the
+                    configured CSRF request header for protected state-changing requests.
+                    """
     )
     @ApiResponses({
-        @ApiResponse(
-            responseCode = "200",
-            description = "CSRF token retrieved successfully"
-        )
+            @ApiResponse(
+                    responseCode = "200",
+                    description = "CSRF token retrieved successfully"
+            )
     })
-    public CsrfToken csrf(CsrfToken csrfToken) {
-        return csrfToken;
+    public CsrfTokenResponse csrf(CsrfToken csrfToken) {
+
+        return new CsrfTokenResponse(
+                csrfToken.getToken(),
+                csrfToken.getHeaderName(),
+                csrfToken.getParameterName()
+        );
     }
+
+    public record CsrfTokenResponse(
+            String token,
+            String headerName,
+            String parameterName
+    ) {}
 }

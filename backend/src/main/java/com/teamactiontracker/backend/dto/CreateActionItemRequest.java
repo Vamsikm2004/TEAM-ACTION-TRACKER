@@ -10,8 +10,6 @@ public class CreateActionItemRequest {
     private String priority;
     private String status;
     private LocalDate dueDate;
-    private Long createdBy;
-
     public String getTitle() { return title; }
     public void setTitle(String title) { this.title = title; }
 
@@ -29,7 +27,4 @@ public class CreateActionItemRequest {
 
     public LocalDate getDueDate() { return dueDate; }
     public void setDueDate(LocalDate dueDate) { this.dueDate = dueDate; }
-
-    public Long getCreatedBy() { return createdBy; }
-    public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
 }

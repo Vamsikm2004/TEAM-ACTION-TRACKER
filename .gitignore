@@ -57,3 +57,6 @@ frontend/blob-report/
 *.encoding-backup
 *.pre-*
 *.working-build
+
+# Local temporary helper-script backups
+/backup/
